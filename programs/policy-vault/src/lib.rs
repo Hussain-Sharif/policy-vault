@@ -1,21 +1,3 @@
-// use anchor_lang::prelude::*;
-
-// declare_id!("CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY");
-
-// #[program]
-// pub mod policy_vault {
-//     use super::*;
-
-//     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-//         msg!("Greetings from: {:?}", ctx.program_id);
-//         Ok(())
-//     }
-// }
-
-// #[derive(Accounts)]
-// pub struct Initialize {}
-
-
 use anchor_lang::prelude::*;
 
 pub mod errors;
@@ -24,7 +6,7 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("your_program_id_here"); // we'll fix this after first build
+declare_id!("CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY"); // we'll fix this after first build
 
 #[program]
 pub mod policy_vault {

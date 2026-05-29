@@ -77,7 +77,7 @@ impl NonceRecord {
 // ─────────────────────────────────────────────
 // EVENTS
 // Emitted on-chain for observability.
-// Off-chain indexers and your demo can listen to these.
+// Off-chain indexers can listen to these.
 // ─────────────────────────────────────────────
 #[event]
 pub struct VaultInitialized {
