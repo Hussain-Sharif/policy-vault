@@ -1,93 +1,147 @@
 /**
- * PolicyVault Demo: Paid API Server (x402-style)
+ * PolicyVault Demo: Paid API Server (x402 Protocol)
  *
- * Simulates an API that requires payment before serving data.
- * Real x402 flow: client hits endpoint → gets 402 → pays → retries → gets data.
- *
- * Run: npx ts-node app/server.ts
+ * Real x402 flow:
+ *   1. Client hits GET /data           → 402 + payment instructions
+ *   2. Client pays via PolicyVault     → tx signature generated on-chain
+ *   3. Client POST /confirm-payment    → server VERIFIES tx on Solana ← real x402
+ *   4. Client retries GET /data        → 200 + premium data
  */
 
 import http from "http";
-import crypto from "crypto";
+import { Connection, PublicKey } from "@solana/web3.js";
 
-const PORT      = 3000;
-const PRICE_SOL = 0.005; // 0.005 SOL per request
-const PRICE_LAM = PRICE_SOL * 1_000_000_000;
+const PORT       = 3000;
+const PRICE_SOL  = 0.005;
+const PRICE_LAM  = PRICE_SOL * 1_000_000_000;
+const PROGRAM_ID = "CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY";
+const RPC_URL    = "http://localhost:8899"; // ← change to devnet URL when deploying
 
-// In-memory store of paid receipts (in production: verify on-chain)
-const paidReceipts = new Set<string>();
+const connection    = new Connection(RPC_URL, "confirmed");
+const paidReceipts  = new Set<string>();
+
+// ── CORS helper (needed when UI calls this server) ──────────
+function setCORS(res: http.ServerResponse) {
+  res.setHeader("Access-Control-Allow-Origin",  "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
 
 const server = http.createServer((req, res) => {
+  setCORS(res);
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   const url = new URL(req.url!, `http://localhost:${PORT}`);
 
-  // ── Route: GET /data ────────────────────────────────────────
+  // ── GET /data ────────────────────────────────────────────────
   if (req.method === "GET" && url.pathname === "/data") {
     const receipt = url.searchParams.get("receipt");
 
-    // No receipt → 402 Payment Required
     if (!receipt) {
       res.writeHead(402, {
-        "Content-Type":           "application/json",
-        "X-Payment-Required":     "true",
-        "X-Payment-Amount":       PRICE_LAM.toString(),
-        "X-Payment-Currency":     "SOL (lamports)",
-        "X-Payment-Description":  "PolicyVault consume_budget call required",
-        "X-Payment-Network":      "Solana Devnet",
+        "Content-Type":          "application/json",
+        "X-Payment-Required":    "true",
+        "X-Payment-Amount":      PRICE_LAM.toString(),
+        "X-Payment-Currency":    "SOL (lamports)",
+        "X-Payment-Description": "PolicyVault consume_budget call required",
+        "X-Payment-Network":     "Solana Localnet",
+        "X-Payment-Recipient":   PROGRAM_ID,
       });
       res.end(JSON.stringify({
         error:       "Payment Required",
         code:        402,
         price:       `${PRICE_LAM} lamports (${PRICE_SOL} SOL)`,
-        instruction: "Call PolicyVault.consume_budget, then retry with ?receipt=<tx_signature>",
+        instruction: "Call PolicyVault.consume_budget, then POST /confirm-payment with txSignature",
       }, null, 2));
-
-      console.log(`[402] Client hit /data without payment. Told to pay ${PRICE_LAM} lamports.`);
+      console.log(`[402] No payment. Required: ${PRICE_LAM} lamports`);
       return;
     }
 
-    // Has receipt → verify it's been submitted (demo: just check it's in our set)
     if (paidReceipts.has(receipt)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         success: true,
-        data:    {
-          price_feed:    "SOL/USD: $185.42",
-          block_height:  345_291_847,
-          tps:           52_000,
-          message:       "🎯 Premium data unlocked via PolicyVault payment.",
-          receipt:       receipt,
+        data: {
+          price_feed:   "SOL/USD: $185.42",
+          block_height: 345_291_847,
+          tps:          52_000,
+          message:      "🎯 Premium data unlocked via PolicyVault x402 payment.",
+          receipt:      receipt,
         },
       }, null, 2));
-
-      console.log(`[200] Payment verified. Served premium data. Receipt: ${receipt.slice(0, 20)}...`);
+      console.log(`[200] Data served. Receipt: ${receipt.slice(0, 20)}...`);
       return;
     }
 
-    // Receipt submitted but not registered yet
     res.writeHead(402, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      error:   "Receipt not found or not yet confirmed",
+      error:   "Receipt not found or not yet confirmed on-chain",
       receipt: receipt,
     }, null, 2));
     return;
   }
 
-  // ── Route: POST /confirm-payment ────────────────────────────
-  // Agent calls this after submitting consume_budget on-chain
+  // ── POST /confirm-payment ────────────────────────────────────
   if (req.method === "POST" && url.pathname === "/confirm-payment") {
     let body = "";
     req.on("data", chunk => (body += chunk));
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const { txSignature } = JSON.parse(body);
         if (!txSignature) throw new Error("Missing txSignature");
 
+        console.log(`[VERIFY] Checking tx on Solana: ${txSignature.slice(0, 30)}...`);
+
+        // ── REAL x402: verify on-chain ───────────────────────
+        const txInfo = await connection.getTransaction(txSignature, {
+          commitment:                     "confirmed",
+          maxSupportedTransactionVersion: 0,
+        });
+
+        if (!txInfo) {
+          console.log(`[REJECT] Transaction not found on-chain`);
+          res.writeHead(402, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Transaction not found on-chain" }));
+          return;
+        }
+
+        if (txInfo.meta?.err) {
+          console.log(`[REJECT] Transaction failed on-chain`);
+          res.writeHead(402, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Transaction failed on-chain", detail: txInfo.meta.err }));
+          return;
+        }
+
+        // Verify the tx actually called PolicyVault
+        const keys = txInfo.transaction.message.getAccountKeys().staticAccountKeys;
+        const calledVault = keys.some(k => k.toBase58() === PROGRAM_ID);
+
+        if (!calledVault) {
+          console.log(`[REJECT] Tx did not call PolicyVault program`);
+          res.writeHead(402, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Transaction did not call PolicyVault" }));
+          return;
+        }
+
+        // ✅ All checks passed
         paidReceipts.add(txSignature);
-        console.log(`[RECEIPT] Payment confirmed: ${txSignature.slice(0, 20)}...`);
+        console.log(`[VERIFIED ✅] On-chain confirmed. PolicyVault called. Receipt stored.`);
 
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ confirmed: true, receipt: txSignature }));
+        res.end(JSON.stringify({
+          confirmed: true,
+          receipt:   txSignature,
+          message:   "Payment verified on Solana. You may now access /data",
+        }));
+
       } catch (e: any) {
+        console.log(`[ERROR] ${e.message}`);
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: e.message }));
       }
@@ -95,13 +149,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ── 404 fallback ────────────────────────────────────────────
+  // ── GET /status (health check) ───────────────────────────────
+  if (req.method === "GET" && url.pathname === "/status") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      server:        "PolicyVault x402 API",
+      status:        "running",
+      rpc:           RPC_URL,
+      program:       PROGRAM_ID,
+      price_lamports: PRICE_LAM,
+      receipts_count: paidReceipts.size,
+    }));
+    return;
+  }
+
   res.writeHead(404);
   res.end("Not found");
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🚀 PolicyVault Demo API running on http://localhost:${PORT}`);
-  console.log(`   GET  /data                 → 402 without payment, 200 with receipt`);
-  console.log(`   POST /confirm-payment      → register tx signature as receipt\n`);
+  console.log(`\n🚀 PolicyVault x402 API  →  http://localhost:${PORT}`);
+  console.log(`   GET  /data              → 402 (no payment) | 200 (with receipt)`);
+  console.log(`   POST /confirm-payment   → verifies tx ON-CHAIN via Solana RPC`);
+  console.log(`   GET  /status            → health check`);
+  console.log(`\n   Program : ${PROGRAM_ID}`);
+  console.log(`   RPC     : ${RPC_URL}\n`);
 });
