@@ -52,4 +52,8 @@ pub mod policy_vault {
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         instructions::withdraw::handler(ctx, amount)
     }
+    
+    pub fn resume_vault(ctx: Context<ResumeVault>) -> Result<()> {
+        instructions::resume_vault::handler(ctx)
+    }
 }

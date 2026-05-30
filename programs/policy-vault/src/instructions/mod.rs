@@ -6,6 +6,7 @@ pub mod consume_budget;
 pub mod revoke_agent;
 pub mod pause_vault;
 pub mod withdraw;
+pub mod resume_vault;
 
 pub use initialize_vault::*;
 pub use deposit::*;
@@ -15,3 +16,4 @@ pub use consume_budget::*;
 pub use revoke_agent::*;
 pub use pause_vault::*;
 pub use withdraw::*;
+pub use resume_vault::*;
