@@ -100,6 +100,23 @@ async function runAgent() {
     programId
   );
 
+  // ── Unpause vault (tests leave it paused after Test 9) ──────
+    console.log("🔓 Resuming vault (owner action)...");
+    try {
+    await program.methods
+        .resumeVault()
+        .accounts({
+        owner:         wallet.publicKey,
+        vault:         vaultPda,
+        systemProgram: SystemProgram.programId,
+        } as any)
+        .rpc();
+    console.log("   ✅ Vault is active\n");
+    } catch (e: any) {
+    // Already unpaused — fine
+    console.log("   ℹ️  Vault already active\n");
+    }
+
   // Register this agent (owner = wallet signs)
   console.log("🤖 Registering agent on-chain...");
   await program.methods
