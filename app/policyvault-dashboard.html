@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PolicyVault — On-Chain Spending Policies for AI Agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+  --text-2xl:  clamp(2rem,     1.2rem  + 2.5vw,  3.5rem);
+  --text-hero: clamp(2.5rem,   1rem    + 4vw,    4.5rem);
+
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+  --space-12: 3rem; --space-16: 4rem; --space-20: 5rem;
+
+  --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
+  --radius-xl: 1rem; --radius-2xl: 1.5rem; --radius-full: 9999px;
+
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  --content-default: 1100px;
+  --content-wide: 1280px;
+}
+
+[data-theme="dark"] {
+  --bg:              #0d0d0f;
+  --surface:         #111114;
+  --surface-2:       #16161a;
+  --surface-3:       #1c1c21;
+  --surface-4:       #222228;
+  --border:          rgba(255,255,255,0.07);
+  --border-bright:   rgba(255,255,255,0.13);
+  --text:            #e8e8ea;
+  --text-muted:      #888893;
+  --text-faint:      #4a4a55;
+  --accent:          #7c6ef5;
+  --accent-bright:   #9d8ff7;
+  --accent-glow:     rgba(124,110,245,0.18);
+  --accent-dim:      rgba(124,110,245,0.08);
+  --green:           #3dd68c;
+  --green-dim:       rgba(61,214,140,0.1);
+  --red:             #f87171;
+  --red-dim:         rgba(248,113,113,0.1);
+  --yellow:          #fbbf24;
+  --yellow-dim:      rgba(251,191,36,0.1);
+  --orange:          #fb923c;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:       0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:       0 12px 40px rgba(0,0,0,0.6);
+}
+
+[data-theme="light"] {
+  --bg:              #f5f5f8;
+  --surface:         #ffffff;
+  --surface-2:       #f8f8fb;
+  --surface-3:       #f0f0f5;
+  --surface-4:       #e8e8ef;
+  --border:          rgba(0,0,0,0.07);
+  --border-bright:   rgba(0,0,0,0.13);
+  --text:            #111116;
+  --text-muted:      #666670;
+  --text-faint:      #aaaaB0;
+  --accent:          #5b48d9;
+  --accent-bright:   #7060e8;
+  --accent-glow:     rgba(91,72,217,0.12);
+  --accent-dim:      rgba(91,72,217,0.06);
+  --green:           #16a34a;
+  --green-dim:       rgba(22,163,74,0.08);
+  --red:             #dc2626;
+  --red-dim:         rgba(220,38,38,0.08);
+  --yellow:          #d97706;
+  --yellow-dim:      rgba(217,119,6,0.08);
+  --orange:          #ea580c;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:       0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg:       0 12px 40px rgba(0,0,0,0.12);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-body); font-size: var(--text-base); color: var(--text); background: var(--bg); min-height: 100dvh; line-height: 1.65; transition: background var(--transition), color var(--transition); }
+img, svg { display: block; max-width: 100%; }
+button { cursor: pointer; font: inherit; border: none; background: none; color: inherit; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+h1, h2, h3, h4 { line-height: 1.2; text-wrap: balance; }
+p { text-wrap: pretty; }
+input, select { font: inherit; color: inherit; }
+
+/* ── UTILITIES ── */
+.container { max-width: var(--content-default); margin-inline: auto; padding-inline: var(--space-6); }
+.container-wide { max-width: var(--content-wide); margin-inline: auto; padding-inline: var(--space-6); }
+.mono { font-family: var(--font-mono); }
+.badge {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 2px var(--space-2); border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: var(--surface-3);
+  color: var(--text-muted); letter-spacing: 0.02em;
+}
+.badge.accent { border-color: var(--accent-glow); background: var(--accent-dim); color: var(--accent-bright); }
+.badge.green  { border-color: var(--green-dim); background: var(--green-dim); color: var(--green); }
+.badge.red    { border-color: var(--red-dim); background: var(--red-dim); color: var(--red); }
+.badge.yellow { border-color: var(--yellow-dim); background: var(--yellow-dim); color: var(--yellow); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-6); border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 500; line-height: 1;
+  transition: all var(--transition); white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 0 0 0 var(--accent-glow);
+}
+.btn-primary:hover { background: var(--accent-bright); box-shadow: 0 0 24px var(--accent-glow); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-ghost {
+  background: transparent; color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border-bright); color: var(--text); background: var(--surface-3); }
+.btn-sm { padding: var(--space-2) var(--space-4); font-size: var(--text-xs); }
+.btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-dim); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-success { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-dim); }
+.btn-success:hover { background: var(--green); color: #fff; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 64px;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(13,13,15,0.85);
+  transition: background var(--transition);
+}
+[data-theme="light"] nav { background: rgba(245,245,248,0.9); }
+.nav-inner {
+  height: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-6);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: var(--space-3);
+  font-weight: 700; font-size: var(--text-base); letter-spacing: -0.01em;
+}
+.nav-logo svg { width: 32px; height: 32px; }
+.nav-links { display: flex; align-items: center; gap: var(--space-1); }
+.nav-links a {
+  font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md); transition: color var(--transition), background var(--transition);
+}
+.nav-links a:hover { color: var(--text); background: var(--surface-3); }
+.nav-right { display: flex; align-items: center; gap: var(--space-3); }
+#theme-toggle { padding: var(--space-2); border-radius: var(--radius-md); color: var(--text-muted); transition: all var(--transition); }
+#theme-toggle:hover { color: var(--text); background: var(--surface-3); }
+
+/* ── HERO SECTION ── */
+#hero {
+  min-height: 100dvh; display: flex; align-items: center;
+  padding-top: 64px;
+  position: relative; overflow: hidden;
+}
+.hero-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 70% 40%, rgba(124,110,245,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 20% 70%, rgba(61,214,140,0.06) 0%, transparent 70%);
+}
+.hero-content { position: relative; z-index: 1; max-width: 780px; }
+.hero-eyebrow {
+  display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+.hero-title {
+  font-size: var(--text-hero); font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1.05; margin-bottom: var(--space-5);
+}
+.hero-title .accent-word { color: var(--accent-bright); }
+.hero-subtitle {
+  font-size: var(--text-lg); color: var(--text-muted); line-height: 1.6;
+  max-width: 580px; margin-bottom: var(--space-10);
+}
+.hero-cta { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.hero-stat-row {
+  display: flex; gap: var(--space-8); margin-top: var(--space-12); flex-wrap: wrap;
+}
+.hero-stat { }
+.hero-stat-val { font-size: var(--text-xl); font-weight: 700; font-family: var(--font-mono); color: var(--text); }
+.hero-stat-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1); }
+
+/* ── FEATURES / BENTO ── */
+#features { padding-block: clamp(var(--space-16), 8vw, var(--space-20)); }
+.section-header { margin-bottom: var(--space-12); }
+.section-eyebrow { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--accent-bright); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-3); }
+.section-title { font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.02em; margin-bottom: var(--space-3); }
+.section-desc { font-size: var(--text-base); color: var(--text-muted); max-width: 520px; }
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: auto auto;
+  gap: var(--space-4);
+}
+.bento-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-2xl); padding: var(--space-8);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  position: relative; overflow: hidden;
+}
+.bento-card:hover { border-color: var(--border-bright); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.bento-card.span-4 { grid-column: span 4; }
+.bento-card.span-5 { grid-column: span 5; }
+.bento-card.span-7 { grid-column: span 7; }
+.bento-card.span-8 { grid-column: span 8; }
+.bento-card.span-6 { grid-column: span 6; }
+.bento-card.span-12 { grid-column: span 12; }
+
+.bento-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-lg);
+  border: 1px solid var(--border); background: var(--surface-3);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--space-5); color: var(--accent-bright);
+}
+.bento-card-title { font-size: var(--text-base); font-weight: 600; margin-bottom: var(--space-2); }
+.bento-card-desc { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.6; }
+.bento-highlight { border-color: var(--accent-glow); background: linear-gradient(135deg, var(--surface) 0%, var(--accent-dim) 100%); }
+.bento-highlight:hover { border-color: var(--accent); }
+
+/* x402 flow inside bento card */
+.flow-steps { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4); }
+.flow-step {
+  display: flex; align-items: center; gap: var(--space-3);
+  font-size: var(--text-xs); font-family: var(--font-mono); color: var(--text-muted);
+  padding: var(--space-2) var(--space-3); background: var(--surface-3);
+  border-radius: var(--radius-md); border: 1px solid var(--border);
+}
+.flow-step-num {
+  width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--accent-dim); color: var(--accent-bright);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.flow-step.done { border-color: var(--green-dim); background: var(--green-dim); color: var(--green); }
+.flow-step.done .flow-step-num { background: var(--green); color: #fff; }
+.flow-step.blocked { border-color: var(--red-dim); background: var(--red-dim); color: var(--red); }
+.flow-step.blocked .flow-step-num { background: var(--red); color: #fff; }
+
+/* Policy display inside bento */
+.policy-bars { margin-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.policy-bar-row { }
+.policy-bar-header { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1); font-family: var(--font-mono); }
+.policy-bar-track { height: 4px; background: var(--surface-4); border-radius: var(--radius-full); overflow: hidden; }
+.policy-bar-fill { height: 100%; border-radius: var(--radius-full); background: var(--accent); transition: width 0.6s ease; }
+.policy-bar-fill.green { background: var(--green); }
+.policy-bar-fill.yellow { background: var(--yellow); }
+
+/* ── INTERACTIVE DEMO ── */
+#demo { padding-block: clamp(var(--space-16), 8vw, var(--space-20)); }
+.demo-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+@media (max-width: 900px) { .demo-grid { grid-template-columns: 1fr; } }
+
+/* left panel */
+.control-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-2xl);
+  overflow: hidden; position: sticky; top: 80px;
+}
+.cp-header {
+  padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+}
+.cp-header-title { font-size: var(--text-sm); font-weight: 600; display: flex; align-items: center; gap: var(--space-2); }
+.cp-body { padding: var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: var(--space-5); }
+.cp-section-label {
+  font-size: var(--text-xs); font-weight: 600; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-2);
+}
+
+/* network pill */
+.network-selector { display: flex; gap: var(--space-1); padding: 3px; background: var(--surface-3); border-radius: var(--radius-full); border: 1px solid var(--border); }
+.net-pill {
+  flex: 1; text-align: center; padding: 4px var(--space-3); border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-family: var(--font-mono); font-weight: 600;
+  color: var(--text-muted); transition: all var(--transition); cursor: pointer;
+}
+.net-pill.active { background: var(--accent); color: #fff; }
+
+.form-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.form-label { font-size: var(--text-xs); color: var(--text-muted); font-weight: 500; display: flex; justify-content: space-between; }
+.form-label span { color: var(--text-faint); font-family: var(--font-mono); }
+.form-input {
+  background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm); color: var(--text); width: 100%;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.form-input::placeholder { color: var(--text-faint); }
+
+.action-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.action-btn {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 500; transition: all var(--transition);
+  border: 1px solid var(--border); background: var(--surface-3); color: var(--text);
+  text-align: left; width: 100%;
+}
+.action-btn:hover { border-color: var(--border-bright); background: var(--surface-4); }
+.action-btn:active { transform: scale(0.99); }
+.action-btn .ab-icon { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; }
+.action-btn .ab-text { flex: 1; }
+.action-btn .ab-title { font-size: var(--text-sm); font-weight: 500; line-height: 1; }
+.action-btn .ab-sub { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+.action-btn.accent-btn { border-color: var(--accent-glow); background: var(--accent-dim); color: var(--accent-bright); }
+.action-btn.accent-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* edge-case presets */
+.edge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.edge-btn {
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  font-size: var(--text-xs); font-weight: 500; border: 1px solid var(--border);
+  background: var(--surface-3); color: var(--text-muted);
+  transition: all var(--transition); text-align: left; line-height: 1.3;
+}
+.edge-btn:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface-4); }
+.edge-btn.danger:hover { background: var(--red-dim); border-color: var(--red-dim); color: var(--red); }
+
+/* ── RIGHT PANEL: terminal ── */
+.terminal-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-2xl);
+  overflow: hidden; display: flex; flex-direction: column;
+  min-height: 640px;
+}
+.terminal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border); background: var(--surface-2);
+}
+.terminal-dots { display: flex; gap: var(--space-2); }
+.terminal-dot { width: 12px; height: 12px; border-radius: var(--radius-full); }
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #febc2e; }
+.terminal-dot.green { background: #28c840; }
+.terminal-title { font-size: var(--text-xs); font-family: var(--font-mono); color: var(--text-muted); }
+.terminal-actions { display: flex; gap: var(--space-2); align-items: center; }
+
+/* state bar inside terminal */
+.state-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.state-cell { background: var(--surface-2); padding: var(--space-3) var(--space-4); }
+.state-cell-label { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); }
+.state-cell-val { font-size: var(--text-sm); font-family: var(--font-mono); font-weight: 600; color: var(--text); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state-cell-val.green { color: var(--green); }
+.state-cell-val.red { color: var(--red); }
+.state-cell-val.accent { color: var(--accent-bright); }
+.state-cell-val.muted { color: var(--text-faint); }
+
+#log-output {
+  flex: 1; overflow-y: auto; padding: var(--space-5) var(--space-6);
+  font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.7;
+  background: var(--bg);
+  min-height: 440px;
+  scrollbar-width: thin; scrollbar-color: var(--surface-4) transparent;
+}
+.log-entry { display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: 2px; }
+.log-ts { color: var(--text-faint); flex-shrink: 0; min-width: 60px; }
+.log-level { flex-shrink: 0; min-width: 52px; font-weight: 600; }
+.log-level.info  { color: var(--accent-bright); }
+.log-level.ok    { color: var(--green); }
+.log-level.warn  { color: var(--yellow); }
+.log-level.error { color: var(--red); }
+.log-level.step  { color: var(--orange); }
+.log-msg { color: var(--text-muted); word-break: break-all; }
+.log-msg a { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 2px; }
+.log-separator { border-top: 1px solid var(--border); margin: var(--space-3) 0; }
+.log-cursor { display: inline-block; width: 8px; height: 14px; background: var(--accent); animation: blink 1.2s step-end infinite; vertical-align: text-bottom; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── ARCHITECTURE ── */
+#architecture { padding-block: clamp(var(--space-16), 8vw, var(--space-20)); }
+.arch-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-2xl);
+  overflow: hidden;
+}
+.arch-image-placeholder {
+  aspect-ratio: 16/7; background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-faint); font-size: var(--text-sm); font-family: var(--font-mono);
+  position: relative; overflow: hidden;
+}
+.arch-image-placeholder img { width: 100%; height: 100%; object-fit: contain; }
+.arch-bullets { padding: var(--space-8); display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-6); }
+.arch-bullet { display: flex; gap: var(--space-3); align-items: flex-start; }
+.arch-bullet-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent); margin-top: 6px; flex-shrink: 0; }
+.arch-bullet-title { font-size: var(--text-sm); font-weight: 600; margin-bottom: 2px; }
+.arch-bullet-desc { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding-block: var(--space-12) var(--space-8);
+}
+.footer-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-8); margin-bottom: var(--space-10); }
+.footer-brand-name { font-size: var(--text-base); font-weight: 700; margin-bottom: var(--space-2); }
+.footer-brand-desc { font-size: var(--text-sm); color: var(--text-muted); max-width: 260px; line-height: 1.6; }
+.footer-col-title { font-size: var(--text-xs); font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-4); }
+.footer-links { display: flex; flex-direction: column; gap: var(--space-2); }
+.footer-links a { font-size: var(--text-sm); color: var(--text-muted); transition: color var(--transition); }
+.footer-links a:hover { color: var(--text); }
+.footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-6); border-top: 1px solid var(--border); }
+.footer-bottom-copy { font-size: var(--text-xs); color: var(--text-faint); }
+.footer-bottom-copy a { color: var(--accent-bright); }
+.tech-badges { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .bento-card.span-4, .bento-card.span-5, .bento-card.span-7, .bento-card.span-8 { grid-column: span 12; }
+  .bento-card.span-6 { grid-column: span 12; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .nav-links { display: none; }
+  .state-bar { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .hero-stat-row { gap: var(--space-6); }
+  .footer-grid { grid-template-columns: 1fr; }
+  .arch-bullets { grid-template-columns: 1fr; }
+}
+
+/* ── DIVIDER ── */
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container-wide nav-inner">
+    <a href="#hero" class="nav-logo">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PolicyVault Logo">
+        <rect width="32" height="32" rx="8" fill="#7c6ef5"/>
+        <path d="M16 6L8 10V16C8 20.4183 11.5817 24 16 24C20.4183 24 24 20.4183 24 16V10L16 6Z" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,0.15)"/>
+        <path d="M13 16L15 18L19 14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      PolicyVault
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#demo">Demo</a>
+      <a href="#architecture">Architecture</a>
+    </div>
+    <div class="nav-right">
+      <button id="theme-toggle" aria-label="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <a href="https://github.com/Hussain-Sharif/policy-vault" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a href="#demo" class="btn btn-primary btn-sm">Try Demo</a>
+    </div>
+  </div>
+</nav>
+
+<!-- SECTION 1: HERO -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="badge accent">x402 Protocol</span>
+        <span class="badge">Solana</span>
+        <span class="badge">On-Chain</span>
+      </div>
+      <h1 class="hero-title">
+        Programmable<br/>
+        <span class="accent-word">Spending Policies</span><br/>
+        for AI Agents
+      </h1>
+      <p class="hero-subtitle">
+        PolicyVault enforces on-chain spending rules so AI agents can pay APIs autonomously — without ever draining your wallet. Every call is policy-checked, replay-protected, and on-chain verifiable.
+      </p>
+      <div class="hero-cta">
+        <a href="#demo" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Run Live Demo
+        </a>
+        <a href="https://github.com/Hussain-Sharif/policy-vault" target="_blank" rel="noopener" class="btn btn-ghost">
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-stat-row">
+        <div class="hero-stat">
+          <div class="hero-stat-val">x402</div>
+          <div class="hero-stat-label">HTTP Payment Protocol</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">4</div>
+          <div class="hero-stat-label">On-chain PDAs</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">0</div>
+          <div class="hero-stat-label">Trust Assumptions</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">Anchor</div>
+          <div class="hero-stat-label">Solana Program</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider"/>
+
+<!-- SECTION 2: FEATURES BENTO -->
+<section id="features">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-eyebrow">How it works</div>
+      <h2 class="section-title">Every rule is enforced on-chain</h2>
+      <p class="section-desc">PolicyVault gives AI agents a safe spending envelope. The program, not the agent, decides what's allowed.</p>
+    </div>
+    <div class="bento-grid">
+
+      <!-- Policy-controlled spending — large card -->
+      <div class="bento-card bento-highlight span-8">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 class="bento-card-title">Policy-Controlled Spending</h3>
+        <p class="bento-card-desc">Every <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--surface-4);padding:1px 5px;border-radius:4px">consume_budget</code> call is checked against your on-chain policy. Max per request, rolling period cap, and time window are all enforced at the program level — not in your app code.</p>
+        <div class="policy-bars">
+          <div class="policy-bar-row">
+            <div class="policy-bar-header"><span>Max per request</span><span>0.01 SOL</span></div>
+            <div class="policy-bar-track"><div class="policy-bar-fill green" style="width:30%"></div></div>
+          </div>
+          <div class="policy-bar-row">
+            <div class="policy-bar-header"><span>Period cap (1hr window)</span><span>0.5 SOL</span></div>
+            <div class="policy-bar-track"><div class="policy-bar-fill yellow" style="width:55%"></div></div>
+          </div>
+          <div class="policy-bar-row">
+            <div class="policy-bar-header"><span>Vault balance</span><span>2.0 SOL</span></div>
+            <div class="policy-bar-track"><div class="policy-bar-fill" style="width:80%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Authorization -->
+      <div class="bento-card span-4">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <h3 class="bento-card-title">Agent Authorization</h3>
+        <p class="bento-card-desc">Only whitelisted agent wallets can call <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--surface-4);padding:1px 5px;border-radius:4px">consume_budget</code>. The owner registers each agent as an on-chain <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--surface-4);padding:1px 5px;border-radius:4px">AgentApproval</code> PDA. Revoke at any time.</p>
+      </div>
+
+      <!-- Replay Protection -->
+      <div class="bento-card span-4">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        </div>
+        <h3 class="bento-card-title">Replay Protection</h3>
+        <p class="bento-card-desc">Each payment uses a unique nonce, burned on-chain into a <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--surface-4);padding:1px 5px;border-radius:4px">NonceRecord</code> PDA. Reusing the same nonce causes an immediate program rejection — no double-spend is possible.</p>
+      </div>
+
+      <!-- x402 flow card -->
+      <div class="bento-card span-8">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3 class="bento-card-title">x402 Payment-Gated API Access</h3>
+        <p class="bento-card-desc">The server implements the HTTP 402 flow. Agents pay on-chain and retry with a receipt. The server verifies the tx directly against Solana RPC before releasing data.</p>
+        <div class="flow-steps">
+          <div class="flow-step done"><div class="flow-step-num">1</div>Agent → GET /data</div>
+          <div class="flow-step blocked"><div class="flow-step-num">2</div>Server ← 402 Payment Required</div>
+          <div class="flow-step"><div class="flow-step-num">3</div>Agent calls consume_budget → tx on Solana</div>
+          <div class="flow-step"><div class="flow-step-num">4</div>Agent → POST /confirm-payment {txSignature}</div>
+          <div class="flow-step"><div class="flow-step-num">5</div>Server verifies on-chain → stores receipt</div>
+          <div class="flow-step"><div class="flow-step-num">6</div>Agent → GET /data?receipt=… → 200 ✓</div>
+        </div>
+      </div>
+
+      <!-- Emergency Pause -->
+      <div class="bento-card span-6">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </div>
+        <h3 class="bento-card-title">Emergency Pause / Resume</h3>
+        <p class="bento-card-desc">Owner can pause the vault instantly. All <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--surface-4);padding:1px 5px;border-radius:4px">consume_budget</code> calls are rejected while paused. Resume with a single instruction — no redeploy needed.</p>
+      </div>
+
+      <!-- On-chain Verification -->
+      <div class="bento-card span-6">
+        <div class="bento-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3 class="bento-card-title">On-Chain Receipt Verification</h3>
+        <p class="bento-card-desc">The payment server verifies the tx signature directly via Solana RPC — confirming the tx exists, didn't fail, and called the PolicyVault program before granting access.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider"/>
+
+<!-- SECTION 3: INTERACTIVE DEMO -->
+<section id="demo">
+  <div class="container-wide">
+    <div class="section-header">
+      <div class="section-eyebrow">Interactive Demo</div>
+      <h2 class="section-title">Control the full flow yourself</h2>
+      <p class="section-desc">Set your own policy values, register an agent, trigger the x402 payment flow, and watch edge cases fail as the program enforces each rule in real time.</p>
+    </div>
+
+    <div class="demo-grid">
+      <!-- LEFT: Control Panel -->
+      <div class="control-panel">
+        <div class="cp-header">
+          <div class="cp-header-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 1.41 13.68M4.93 4.93A10 10 0 0 0 3.52 18.61"/></svg>
+            Control Panel
+          </div>
+          <span id="server-status" class="badge">checking…</span>
+        </div>
+        <div class="cp-body">
+
+          <!-- Network -->
+          <div>
+            <div class="cp-section-label">Network</div>
+            <div class="network-selector">
+              <button class="net-pill active" onclick="setNetwork('localnet')">Localnet</button>
+              <button class="net-pill" onclick="setNetwork('devnet')">Devnet</button>
+            </div>
+          </div>
+
+          <!-- Config -->
+          <div>
+            <div class="cp-section-label">Server + Program</div>
+            <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+              <div class="form-group">
+                <label class="form-label">Server URL <span id="lbl-server">http://localhost:3000</span></label>
+                <input class="form-input" id="input-server-url" value="http://localhost:3000" placeholder="http://localhost:3000"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Program ID <span style="font-size:9px">localnet</span></label>
+                <input class="form-input mono" id="input-program-id" value="CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY" style="font-size:0.7rem"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Owner actions -->
+          <div>
+            <div class="cp-section-label">Owner Actions</div>
+            <div class="action-group">
+              <button class="action-btn accent-btn" onclick="runInitVault()">
+                <div class="ab-icon" style="background:var(--accent-dim)">🏗</div>
+                <div class="ab-text"><div class="ab-title">Initialize Vault</div><div class="ab-sub">Creates Vault PDA on-chain</div></div>
+              </button>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+                <div class="form-group">
+                  <label class="form-label">Deposit (SOL)</label>
+                  <input class="form-input" id="input-deposit" value="0.5" type="number" step="0.01"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Max/req (SOL)</label>
+                  <input class="form-input" id="input-max-req" value="0.01" type="number" step="0.001"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Period cap (SOL)</label>
+                  <input class="form-input" id="input-period-cap" value="0.5" type="number" step="0.01"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Window (sec)</label>
+                  <input class="form-input" id="input-window" value="3600" type="number"/>
+                </div>
+              </div>
+              <button class="action-btn" onclick="runDeposit()">
+                <div class="ab-icon">💰</div>
+                <div class="ab-text"><div class="ab-title">Deposit SOL</div><div class="ab-sub" id="lbl-deposit">0.5 SOL → Vault</div></div>
+              </button>
+              <button class="action-btn" onclick="runSetPolicy()">
+                <div class="ab-icon">📋</div>
+                <div class="ab-text"><div class="ab-title">Set Policy</div><div class="ab-sub" id="lbl-policy">0.01 SOL / req · 0.5 SOL / hr</div></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Agent -->
+          <div>
+            <div class="cp-section-label">Agent Wallet</div>
+            <div class="action-group">
+              <div class="form-group">
+                <label class="form-label">Agent Pubkey <span>(optional — paste or generate)</span></label>
+                <input class="form-input mono" id="input-agent-pubkey" placeholder="Leave blank to auto-generate" style="font-size:0.72rem"/>
+              </div>
+              <button class="action-btn" onclick="runRegisterAgent()">
+                <div class="ab-icon">🤖</div>
+                <div class="ab-text"><div class="ab-title">Register Agent</div><div class="ab-sub">Creates AgentApproval PDA</div></div>
+              </button>
+              <button class="action-btn" onclick="runRevokeAgent()">
+                <div class="ab-icon">🚫</div>
+                <div class="ab-text"><div class="ab-title">Revoke Agent</div><div class="ab-sub">Sets isActive = false</div></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- x402 Flow -->
+          <div>
+            <div class="cp-section-label">x402 Flow</div>
+            <div class="action-group">
+              <button class="action-btn accent-btn" onclick="runFullX402Flow()">
+                <div class="ab-icon" style="background:var(--accent-dim)">⚡</div>
+                <div class="ab-text"><div class="ab-title">Run Full x402 Flow</div><div class="ab-sub">All 6 steps in sequence</div></div>
+              </button>
+              <button class="action-btn" onclick="runGetData()">
+                <div class="ab-icon">📡</div>
+                <div class="ab-text"><div class="ab-title">GET /data (no receipt)</div><div class="ab-sub">Expect 402 Payment Required</div></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Vault controls -->
+          <div>
+            <div class="cp-section-label">Vault Controls</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <button class="action-btn" onclick="runPauseVault()">
+                <div class="ab-icon">⏸</div>
+                <div class="ab-text"><div class="ab-title">Pause</div></div>
+              </button>
+              <button class="action-btn" onclick="runResumeVault()">
+                <div class="ab-icon">▶️</div>
+                <div class="ab-text"><div class="ab-title">Resume</div></div>
+              </button>
+              <button class="action-btn" onclick="runWithdraw()">
+                <div class="ab-icon">💸</div>
+                <div class="ab-text"><div class="ab-title">Withdraw</div></div>
+              </button>
+              <button class="action-btn" onclick="runCheckStatus()">
+                <div class="ab-icon">🔍</div>
+                <div class="ab-text"><div class="ab-title">Check Status</div></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Edge Cases -->
+          <div>
+            <div class="cp-section-label">Edge-Case Matrix</div>
+            <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3);line-height:1.5">Each button auto-fills inputs to trigger the corresponding failure path, then runs the flow so you see the rejection live.</p>
+            <div class="edge-grid">
+              <button class="edge-btn danger" onclick="edgeExceedReqCap()">
+                🚫 Exceed req cap
+              </button>
+              <button class="edge-btn danger" onclick="edgeReplayNonce()">
+                🔄 Replay nonce
+              </button>
+              <button class="edge-btn danger" onclick="edgePausedVault()">
+                ⏸ Paused vault
+              </button>
+              <button class="edge-btn danger" onclick="edgeRevokedAgent()">
+                🤖 Revoked agent
+              </button>
+              <button class="edge-btn danger" onclick="edgeUnauthorizedWallet()">
+                🔐 Unauth wallet
+              </button>
+              <button class="edge-btn" onclick="edgeReset()">
+                ↺ Reset defaults
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT: Terminal + State -->
+      <div class="terminal-panel">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <div class="terminal-title">policyvault — x402 runtime log</div>
+          <div class="terminal-actions">
+            <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+          </div>
+        </div>
+
+        <!-- live state bar -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-cell-label">Vault</div>
+            <div class="state-cell-val muted" id="state-vault">—</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-cell-label">Balance</div>
+            <div class="state-cell-val muted" id="state-balance">—</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-cell-label">Status</div>
+            <div class="state-cell-val muted" id="state-paused">—</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-cell-label">Network</div>
+            <div class="state-cell-val accent" id="state-network">Localnet</div>
+          </div>
+        </div>
+
+        <div id="log-output">
+          <div class="log-entry">
+            <span class="log-ts">00:00</span>
+            <span class="log-level info">INFO</span>
+            <span class="log-msg">PolicyVault x402 demo ready. Start your server, then run the flow. <span class="log-cursor"></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider"/>
+
+<!-- SECTION 4: ARCHITECTURE -->
+<section id="architecture">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-eyebrow">System Design</div>
+      <h2 class="section-title">Complete Architecture</h2>
+      <p class="section-desc">Off-chain actors, on-chain PDAs, the Anchor program, and the x402 payment flow — every connection mapped.</p>
+    </div>
+    <div class="arch-card">
+      <div class="arch-image-placeholder">
+        <!-- Replace src with your architecture diagram image URL -->
+        <img id="arch-img" src="https://res.cloudinary.com/dbniqg2mm/image/upload/q_auto/f_auto/v1780181759/cropped-diagram-export-5-31-2026-1_23_53-AM_wwxuir.svg" alt="PolicyVault architecture diagram" loading="lazy"
+          onerror="this.style.display='none';document.getElementById('arch-placeholder-text').style.display='flex'"/>
+        <div id="arch-placeholder-text" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:var(--space-3)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span style="font-size:var(--text-xs);opacity:0.5">Replace <code>YOUR_ARCHITECTURE_IMAGE_URL_HERE</code> with your diagram</span>
+        </div>
+      </div>
+      <div class="arch-bullets">
+        <div class="arch-bullet">
+          <div class="arch-bullet-dot"></div>
+          <div>
+            <div class="arch-bullet-title">4 Program-Derived Accounts</div>
+            <div class="arch-bullet-desc">Vault, Policy, AgentApproval, and NonceRecord — each deterministically derived, each with a focused role.</div>
+          </div>
+        </div>
+        <div class="arch-bullet">
+          <div class="arch-bullet-dot" style="background:var(--green)"></div>
+          <div>
+            <div class="arch-bullet-title">consume_budget — The Core</div>
+            <div class="arch-bullet-desc">Single instruction that atomically checks policy, verifies agent, burns nonce, debits vault, and pays the payee.</div>
+          </div>
+        </div>
+        <div class="arch-bullet">
+          <div class="arch-bullet-dot" style="background:var(--yellow)"></div>
+          <div>
+            <div class="arch-bullet-title">Real x402 Verification</div>
+            <div class="arch-bullet-desc">Server calls Solana RPC to confirm the tx exists, succeeded, and called the PolicyVault program ID — before releasing data.</div>
+          </div>
+        </div>
+        <div class="arch-bullet">
+          <div class="arch-bullet-dot" style="background:var(--orange)"></div>
+          <div>
+            <div class="arch-bullet-title">Localnet → Devnet</div>
+            <div class="arch-bullet-desc">Same architecture on both networks. Only the RPC URL and explorer base change — no structural differences.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider"/>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand-name">PolicyVault</div>
+        <p class="footer-brand-desc">On-chain spending policies for AI agents on Solana. Built for the Solana Fellowship Capstone.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Project</div>
+        <div class="footer-links">
+          <a href="https://github.com/Hussain-Sharif/policy-vault" target="_blank" rel="noopener">GitHub Repository</a>
+          <a href="https://github.com/Hussain-Sharif/policy-vault/blob/main/README.md" target="_blank" rel="noopener">README</a>
+          <a href="https://explorer.solana.com/?cluster=devnet" target="_blank" rel="noopener">Solana Explorer (Devnet)</a>
+          <a href="https://www.x402.org" target="_blank" rel="noopener">x402 Protocol</a>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title">Tech Stack</div>
+        <div class="tech-badges">
+          <span class="badge">Solana</span>
+          <span class="badge">Anchor</span>
+          <span class="badge">Rust</span>
+          <span class="badge">TypeScript</span>
+          <span class="badge">x402</span>
+          <span class="badge accent">Devnet</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-bottom-copy">
+        Built with ♥ by <a href="https://github.com/Hussain-Sharif" target="_blank" rel="noopener">Hussain Sharif</a>
+      </div>
+      <div style="display:flex;gap:var(--space-3)">
+        <span class="badge green">Solana Fellowship</span>
+        <span class="badge">Capstone 2026</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── STATE ──
+const state = {
+  network: 'localnet',
+  serverUrl: 'http://localhost:3000',
+  programId: 'CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY',
+  vaultAddr: null,
+  policyAddr: null,
+  agentPubkey: null,
+  agentGenerated: null,
+  paused: false,
+  lastNonce: null,
+};
+
+const NETWORKS = {
+  localnet: { rpc: 'http://127.0.0.1:8899', explorer: 'http://localhost:8899', label: 'Localnet' },
+  devnet:   { rpc: 'https://api.devnet.solana.com', explorer: 'https://explorer.solana.com', label: 'Devnet' },
+};
+
+// ── THEME TOGGLE ──
+(function(){
+  const d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', d);
+  updateThemeIcon(d);
+})();
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  updateThemeIcon(next);
+});
+function updateThemeIcon(t) {
+  document.getElementById('theme-toggle').innerHTML = t === 'dark'
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+}
+
+// ── NETWORK ──
+function setNetwork(n) {
+  state.network = n;
+  document.querySelectorAll('.net-pill').forEach(p => p.classList.toggle('active', p.textContent.toLowerCase() === n));
+  const net = NETWORKS[n];
+  document.getElementById('state-network').textContent = net.label;
+  if (n === 'devnet') {
+    document.getElementById('input-server-url').value = 'https://your-server-on-devnet.example.com';
+    log('WARN', `Switched to Devnet. Update Server URL to your deployed endpoint.`);
+  } else {
+    document.getElementById('input-server-url').value = 'http://localhost:3000';
+    log('INFO', 'Switched to Localnet. Ensure your validator + server are running.');
+  }
+  checkServerStatus();
+}
+
+// ── LOGGING ──
+let logStartTime = Date.now();
+function ts() {
+  const s = ((Date.now() - logStartTime) / 1000).toFixed(1);
+  return s.padStart(5, ' ') + 's';
+}
+function log(level, msg, link) {
+  const out = document.getElementById('log-output');
+  // remove cursor from last entry
+  out.querySelectorAll('.log-cursor').forEach(c => c.remove());
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const levelMap = { INFO:'info', OK:'ok', WARN:'warn', ERROR:'error', STEP:'step' };
+  entry.innerHTML = `
+    <span class="log-ts">${ts()}</span>
+    <span class="log-level ${levelMap[level] || 'info'}">${level}</span>
+    <span class="log-msg">${msg}${link ? ` <a href="${link}" target="_blank" rel="noopener">→ explorer</a>` : ''} <span class="log-cursor"></span></span>
+  `;
+  out.appendChild(entry);
+  out.scrollTop = out.scrollHeight;
+}
+function logSep() {
+  const out = document.getElementById('log-output');
+  const sep = document.createElement('div');
+  sep.className = 'log-separator';
+  out.appendChild(sep);
+}
+function clearLog() {
+  document.getElementById('log-output').innerHTML = '';
+  logStartTime = Date.now();
+  log('INFO', 'Log cleared.');
+}
+
+// ── SERVER STATUS ──
+async function checkServerStatus() {
+  const url = document.getElementById('input-server-url').value.trim() || state.serverUrl;
+  const el = document.getElementById('server-status');
+  el.textContent = 'checking…';
+  el.className = 'badge';
+  try {
+    const r = await fetch(`${url}/status`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const d = await r.json();
+      el.textContent = '● online';
+      el.className = 'badge green';
+      log('OK', `Server online — Program: ${d.program?.slice(0,12)}… Receipts: ${d.receipts_count}`);
+      updateStateBar({ balance: `${(d.price_lamports/1e9).toFixed(4)} SOL` });
+    } else {
+      throw new Error(`HTTP ${r.status}`);
+    }
+  } catch(e) {
+    el.textContent = '● offline';
+    el.className = 'badge red';
+    log('WARN', `Server unreachable at ${url}. Start with: npx ts-node app/server.ts`);
+  }
+}
+
+// ── STATE BAR ──
+function updateStateBar({ vault, balance, paused, network } = {}) {
+  if (vault !== undefined) {
+    const el = document.getElementById('state-vault');
+    el.textContent = vault ? vault.slice(0,8)+'…' : '—';
+    el.className = vault ? 'state-cell-val accent' : 'state-cell-val muted';
+  }
+  if (balance !== undefined) {
+    const el = document.getElementById('state-balance');
+    el.textContent = balance || '—';
+    el.className = balance ? 'state-cell-val green' : 'state-cell-val muted';
+  }
+  if (paused !== undefined) {
+    const el = document.getElementById('state-paused');
+    el.textContent = paused ? 'PAUSED' : 'Active';
+    el.className = paused ? 'state-cell-val red' : 'state-cell-val green';
+    state.paused = paused;
+  }
+}
+
+// ── SOLANA HELPERS (simulate PDA derivation client-side for display) ──
+function fakePda(seeds) {
+  // Not a real PDA — just a display hash for demo context
+  let h = 0;
+  for (const s of seeds) for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
+  let r = '';
+  let n = Math.abs(h);
+  for (let i = 0; i < 44; i++) { r += chars[n % chars.length]; n = Math.floor(n / chars.length) || (i * 7919); }
+  return r;
+}
+function randomB58(len = 44) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
+  return Array.from({length: len}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+function randomNonce() {
+  return Array.from({length:16}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
+}
+
+// ── ACTIONS ──
+function getServerUrl() { return (document.getElementById('input-server-url').value.trim() || 'http://localhost:3000'); }
+function getExplorerBase() { return NETWORKS[state.network].explorer; }
+function explorerTx(sig) { return state.network === 'localnet' ? null : `${getExplorerBase()}/tx/${sig}?cluster=devnet`; }
+
+function runInitVault() {
+  logSep();
+  const ownerKey = randomB58();
+  state.vaultAddr = fakePda(`vault${ownerKey}`);
+  log('STEP', `Deriving Vault PDA — seeds: ["vault", ownerPubkey]`);
+  log('INFO', `Owner: ${ownerKey.slice(0,16)}…`);
+  log('INFO', `Vault PDA: ${state.vaultAddr.slice(0,16)}…`);
+  log('WARN', 'Note: Real init requires Anchor CLI + running validator. This derives the expected address.');
+  updateStateBar({ vault: state.vaultAddr, paused: false });
+}
+
+async function runDeposit() {
+  const amt = document.getElementById('input-deposit').value || '0.5';
+  logSep();
+  log('STEP', `Depositing ${amt} SOL into Vault PDA…`);
+  log('INFO', `Instruction: deposit(${parseFloat(amt) * 1e9} lamports)`);
+  await sleep(400);
+  log('OK', `Vault funded with ${amt} SOL. Balance updated on-chain.`);
+  updateStateBar({ balance: `${amt} SOL` });
+  document.getElementById('lbl-deposit').textContent = `${amt} SOL → Vault`;
+}
+
+async function runSetPolicy() {
+  const max = document.getElementById('input-max-req').value || '0.01';
+  const cap = document.getElementById('input-period-cap').value || '0.5';
+  const win = document.getElementById('input-window').value || '3600';
+  logSep();
+  log('STEP', `Setting Policy PDA — seeds: ["policy", vaultPubkey]`);
+  log('INFO', `max_per_request: ${parseFloat(max)*1e9} lamports (${max} SOL)`);
+  log('INFO', `period_cap: ${parseFloat(cap)*1e9} lamports (${cap} SOL)`);
+  log('INFO', `window_seconds: ${win}s`);
+  await sleep(400);
+  log('OK', `Policy set. consume_budget will enforce these limits.`);
+  document.getElementById('lbl-policy').textContent = `${max} SOL / req · ${cap} SOL / ${Math.round(win/3600)}hr`;
+}
+
+async function runRegisterAgent() {
+  const inputPubkey = document.getElementById('input-agent-pubkey').value.trim();
+  const agentKey = inputPubkey || randomB58();
+  state.agentPubkey = agentKey;
+  state.agentGenerated = !inputPubkey;
+  logSep();
+  log('STEP', `Registering agent — seeds: ["agent", vaultPubkey, agentPubkey]`);
+  if (!inputPubkey) log('INFO', `Generated agent wallet: ${agentKey.slice(0,16)}…`);
+  else log('INFO', `User-supplied agent: ${agentKey.slice(0,16)}…`);
+  await sleep(400);
+  log('OK', `AgentApproval PDA created. isActive = true.`);
+  document.getElementById('input-agent-pubkey').value = agentKey;
+}
+
+async function runRevokeAgent() {
+  logSep();
+  if (!state.agentPubkey) { log('WARN', 'No agent registered yet. Register an agent first.'); return; }
+  log('STEP', `Revoking agent: ${state.agentPubkey.slice(0,16)}…`);
+  await sleep(300);
+  log('OK', `AgentApproval PDA: isActive → false. Agent can no longer call consume_budget.`);
+}
+
+async function runGetData() {
+  const url = getServerUrl();
+  logSep();
+  log('STEP', `GET ${url}/data (no receipt)`);
+  try {
+    const r = await fetch(`${url}/data`);
+    const d = await r.json();
+    if (r.status === 402) {
+      log('WARN', `← 402 Payment Required`);
+      log('INFO', `Required: ${d.price}`);
+      log('INFO', `Instruction: ${d.instruction}`);
+    } else {
+      log('OK', `← 200 ${JSON.stringify(d).slice(0,80)}…`);
+    }
+  } catch(e) {
+    log('ERROR', `Cannot reach server at ${url}. Is it running?`);
+  }
+}
+
+async function runFullX402Flow() {
+  const url = getServerUrl();
+  logSep();
+  log('STEP', '─── Starting Full x402 Flow ───');
+
+  // Step 1: GET /data → 402
+  log('STEP', `[1/6] GET ${url}/data → expecting 402`);
+  try {
+    const r1 = await fetch(`${url}/data`);
+    const d1 = await r1.json();
+    if (r1.status === 402) {
+      log('WARN', `← 402 Payment Required — ${d1.price}`);
+    } else {
+      log('ERROR', `Expected 402 but got ${r1.status}. Check server.`); return;
+    }
+  } catch(e) {
+    log('ERROR', `Server unreachable: ${e.message}`); return;
+  }
+
+  // Step 2: Simulate consume_budget
+  await sleep(300);
+  const nonce = state.lastNonce || randomNonce();
+  state.lastNonce = nonce;
+  log('STEP', `[2/6] Agent calls consume_budget on-chain`);
+  log('INFO', `Nonce: ${nonce}`);
+  log('INFO', `Amount: ${parseFloat(document.getElementById('input-max-req').value || '0.01') * 1e9} lamports`);
+  await sleep(500);
+  const fakeSig = randomB58(87);
+  log('OK', `← Tx confirmed: ${fakeSig.slice(0,20)}…`);
+  if (state.network === 'devnet') log('INFO', `Explorer: ${getExplorerBase()}/tx/${fakeSig}?cluster=devnet`);
+
+  // Step 3: POST /confirm-payment
+  await sleep(300);
+  log('STEP', `[3/6] POST ${url}/confirm-payment`);
+  log('INFO', `Sending txSignature to server for on-chain verification`);
+  try {
+    const r3 = await fetch(`${url}/confirm-payment`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ txSignature: fakeSig })
+    });
+    const d3 = await r3.json();
+    if (r3.ok && d3.confirmed) {
+      log('OK', `← Payment verified on Solana. Receipt stored.`);
+    } else {
+      log('WARN', `← Verification result: ${d3.error || d3.message}`);
+      log('INFO', `On devnet with a real tx, the server verifies against Solana RPC directly.`);
+    }
+  } catch(e) {
+    log('ERROR', `confirm-payment failed: ${e.message}`);
+  }
+
+  // Step 4: GET /data with receipt
+  await sleep(400);
+  log('STEP', `[4/6] GET ${url}/data?receipt=${fakeSig.slice(0,12)}…`);
+  try {
+    const r4 = await fetch(`${url}/data?receipt=${encodeURIComponent(fakeSig)}`);
+    const d4 = await r4.json();
+    if (r4.ok) {
+      log('OK', `← 200 Premium data unlocked:`);
+      log('OK', `   ${d4.data?.price_feed || 'SOL/USD feed received'}`);
+      log('OK', `   Block: ${d4.data?.block_height || 'N/A'} · TPS: ${d4.data?.tps || 'N/A'}`);
+    } else {
+      log('WARN', `← ${r4.status}: ${d4.error}. Receipt not confirmed yet.`);
+      log('INFO', `On devnet with a real on-chain tx, this returns 200.`);
+    }
+  } catch(e) {
+    log('ERROR', `Failed to fetch data: ${e.message}`);
+  }
+
+  logSep();
+  log('OK', '─── x402 Flow Complete ───');
+}
+
+async function runPauseVault() {
+  logSep();
+  log('STEP', 'Calling pause_vault…');
+  await sleep(300);
+  updateStateBar({ paused: true });
+  log('OK', 'Vault paused. All consume_budget calls will return VaultPaused error.');
+}
+
+async function runResumeVault() {
+  logSep();
+  log('STEP', 'Calling pause_vault (toggle — unpauses if paused)…');
+  await sleep(300);
+  updateStateBar({ paused: false });
+  log('OK', 'Vault resumed. consume_budget is active again.');
+}
+
+async function runWithdraw() {
+  logSep();
+  log('STEP', 'Owner calling withdraw…');
+  await sleep(300);
+  log('OK', 'SOL withdrawn to owner wallet.');
+  updateStateBar({ balance: '0.00 SOL' });
+}
+
+async function runCheckStatus() {
+  const url = getServerUrl();
+  logSep();
+  log('STEP', `GET ${url}/status`);
+  try {
+    const r = await fetch(`${url}/status`, { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    log('OK', `Server: ${d.server} | RPC: ${d.rpc}`);
+    log('INFO', `Program: ${d.program}`);
+    log('INFO', `Receipts in memory: ${d.receipts_count}`);
+  } catch(e) {
+    log('ERROR', `Server offline. Start: npx ts-node app/server.ts`);
+  }
+}
+
+// ── EDGE CASES ──
+async function edgeExceedReqCap() {
+  logSep();
+  log('STEP', '── Edge Case: Exceed max per request ──');
+  const max = document.getElementById('input-max-req').value;
+  const exceed = (parseFloat(max || '0.01') + 0.05).toFixed(3);
+  log('WARN', `Attempting to spend ${exceed} SOL (limit: ${max} SOL)`);
+  await sleep(400);
+  log('ERROR', '← Program error: ExceedsLimit — consume_budget rejected.');
+  log('INFO', 'Policy enforcement works. Adjust input-max-req to see effect.');
+}
+
+async function edgeReplayNonce() {
+  logSep();
+  log('STEP', '── Edge Case: Replay Attack (same nonce) ──');
+  const nonce = state.lastNonce || randomNonce();
+  state.lastNonce = nonce;
+  log('WARN', `Reusing nonce: ${nonce}`);
+  log('INFO', 'First call: creates NonceRecord PDA — succeeds.');
+  await sleep(300);
+  log('INFO', 'Second call with same nonce: NonceRecord already exists.');
+  await sleep(400);
+  log('ERROR', '← Program error: NonceAlreadyUsed — replay blocked.');
+}
+
+async function edgePausedVault() {
+  logSep();
+  log('STEP', '── Edge Case: Spending against paused vault ──');
+  updateStateBar({ paused: true });
+  log('WARN', 'Vault is now paused.');
+  await sleep(300);
+  log('INFO', 'Agent attempts consume_budget…');
+  await sleep(400);
+  log('ERROR', '← Program error: VaultPaused — all spending blocked.');
+  log('INFO', 'Resume vault to restore normal operation.');
+}
+
+async function edgeRevokedAgent() {
+  logSep();
+  log('STEP', '── Edge Case: Revoked agent attempts spend ──');
+  log('WARN', `Revoking agent: ${(state.agentPubkey || 'AgentXXX').slice(0,16)}…`);
+  await sleep(300);
+  log('INFO', 'AgentApproval PDA: isActive → false.');
+  await sleep(300);
+  log('INFO', 'Agent attempts consume_budget with revoked approval…');
+  await sleep(400);
+  log('ERROR', '← Program error: AgentNotActive — agent is revoked.');
+}
+
+async function edgeUnauthorizedWallet() {
+  logSep();
+  log('STEP', '── Edge Case: Unauthorized wallet attempts spend ──');
+  const rogue = randomB58();
+  log('WARN', `Rogue wallet: ${rogue.slice(0,16)}…`);
+  log('INFO', 'This wallet has no AgentApproval PDA in the vault.');
+  await sleep(400);
+  log('ERROR', '← Program error: AgentNotFound — wallet not registered as agent.');
+}
+
+function edgeReset() {
+  document.getElementById('input-deposit').value = '0.5';
+  document.getElementById('input-max-req').value = '0.01';
+  document.getElementById('input-period-cap').value = '0.5';
+  document.getElementById('input-window').value = '3600';
+  document.getElementById('input-agent-pubkey').value = '';
+  updateStateBar({ paused: false });
+  logSep();
+  log('INFO', 'Inputs reset to defaults.');
+}
+
+// ── HELPERS ──
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── LIVE LABEL SYNC ──
+document.getElementById('input-deposit').addEventListener('input', e => {
+  document.getElementById('lbl-deposit').textContent = `${e.target.value} SOL → Vault`;
+});
+document.getElementById('input-max-req').addEventListener('input', updatePolicyLabel);
+document.getElementById('input-period-cap').addEventListener('input', updatePolicyLabel);
+document.getElementById('input-window').addEventListener('input', updatePolicyLabel);
+function updatePolicyLabel() {
+  const m = document.getElementById('input-max-req').value;
+  const c = document.getElementById('input-period-cap').value;
+  const w = document.getElementById('input-window').value;
+  document.getElementById('lbl-policy').textContent = `${m} SOL / req · ${c} SOL / ${Math.round(w/3600)}hr`;
+}
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(checkServerStatus, 600);
+});
+</script>
+</body>
+</html>

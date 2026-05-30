@@ -6,7 +6,7 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY"); // we'll fix this after first build
+declare_id!("CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY"); 
 
 #[program]
 pub mod policy_vault {
