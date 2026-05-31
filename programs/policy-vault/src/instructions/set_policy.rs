@@ -45,7 +45,7 @@ pub struct SetPolicy<'info> {
     pub vault: Account<'info, Vault>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = owner,
         space = Policy::LEN,
         seeds = [b"policy", vault.key().as_ref()],
