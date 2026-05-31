@@ -20,10 +20,7 @@ function setCORS(res) {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 function json(res, status, data, extraHeaders = {}) {
-    res.writeHead(status, {
-        "Content-Type": "application/json",
-        ...extraHeaders,
-    });
+    res.writeHead(status, { "Content-Type": "application/json", ...extraHeaders });
     res.end(JSON.stringify(data));
 }
 const server = http_1.default.createServer((req, res) => {
