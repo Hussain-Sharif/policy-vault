@@ -19,8 +19,11 @@ function setCORS(res) {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
-function json(res, status, data) {
-    res.writeHead(status, { "Content-Type": "application/json" });
+function json(res, status, data, extraHeaders = {}) {
+    res.writeHead(status, {
+        "Content-Type": "application/json",
+        ...extraHeaders,
+    });
     res.end(JSON.stringify(data));
 }
 const server = http_1.default.createServer((req, res) => {
@@ -35,20 +38,18 @@ const server = http_1.default.createServer((req, res) => {
     if (req.method === "GET" && url.pathname === "/data") {
         const receipt = url.searchParams.get("receipt");
         if (!receipt) {
-            res.writeHead(402, {
-                "Content-Type": "application/json",
+            json(res, 402, {
+                error: "Payment Required",
+                code: 402,
+                price: `${PRICE_LAM} lamports (${PRICE_SOL} SOL)`,
+                instruction: "Call PolicyVault.consume_budget, then POST /confirm-payment with txSignature",
+            }, {
                 "X-Payment-Required": "true",
                 "X-Payment-Amount": PRICE_LAM.toString(),
                 "X-Payment-Currency": "SOL (lamports)",
                 "X-Payment-Description": "PolicyVault consume_budget call required",
                 "X-Payment-Network": "Solana Devnet",
                 "X-Payment-Recipient": PROGRAM_ID,
-            });
-            json(res, 402, {
-                error: "Payment Required",
-                code: 402,
-                price: `${PRICE_LAM} lamports (${PRICE_SOL} SOL)`,
-                instruction: "Call PolicyVault.consume_budget, then POST /confirm-payment with txSignature",
             });
             console.log(`[402] No payment. Required: ${PRICE_LAM} lamports`);
             return;
