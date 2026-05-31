@@ -1,5 +1,5 @@
 import http from "http";
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const PRICE_SOL = Number(process.env.PRICE_SOL || 0.005);
@@ -9,8 +9,17 @@ const PROGRAM_ID =
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 
+const programPubkey = new PublicKey(PROGRAM_ID);
 const connection = new Connection(RPC_URL, "confirmed");
-const paidReceipts = new Set<string>();
+
+interface ReceiptContext {
+  vaultPda: string;
+  owner: string;
+  agent: string;
+  payee: string;
+  amount: number;
+}
+const receipts = new Map<string, ReceiptContext>();
 
 function setCORS(res: http.ServerResponse) {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
@@ -18,20 +27,20 @@ function setCORS(res: http.ServerResponse) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
+function json(res: http.ServerResponse, status: number, data: unknown) {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(data));
+}
+
 const server = http.createServer((req, res) => {
   setCORS(res);
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
   const url = new URL(req.url!, `http://localhost:${PORT}`);
 
+  // GET /data
   if (req.method === "GET" && url.pathname === "/data") {
     const receipt = url.searchParams.get("receipt");
-
     if (!receipt) {
       res.writeHead(402, {
         "Content-Type": "application/json",
@@ -42,71 +51,52 @@ const server = http.createServer((req, res) => {
         "X-Payment-Network": "Solana Devnet",
         "X-Payment-Recipient": PROGRAM_ID,
       });
-      res.end(
-        JSON.stringify(
-          {
-            error: "Payment Required",
-            code: 402,
-            price: `${PRICE_LAM} lamports (${PRICE_SOL} SOL)`,
-            instruction:
-              "Call PolicyVault.consume_budget, then POST /confirm-payment with txSignature",
-          },
-          null,
-          2
-        )
-      );
+      json(res, 402, {
+        error: "Payment Required",
+        code: 402,
+        price: `${PRICE_LAM} lamports (${PRICE_SOL} SOL)`,
+        instruction: "Call PolicyVault.consume_budget, then POST /confirm-payment with txSignature",
+      });
       console.log(`[402] No payment. Required: ${PRICE_LAM} lamports`);
       return;
     }
 
-    if (paidReceipts.has(receipt)) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify(
-          {
-            success: true,
-            data: {
-              price_feed: "SOL/USD: $185.42",
-              block_height: 345_291_847,
-              tps: 52_000,
-              message:
-                "🎯 Premium data unlocked via PolicyVault x402 payment.",
-              receipt,
-            },
-          },
-          null,
-          2
-        )
-      );
-      console.log(`[200] Data served. Receipt: ${receipt.slice(0, 20)}...`);
+    const ctx = receipts.get(receipt);
+    if (!ctx) {
+      json(res, 402, { error: "Receipt not found or not yet confirmed" });
       return;
     }
 
-    res.writeHead(402, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify(
-        {
-          error: "Receipt not found or not yet confirmed on-chain",
-          receipt,
-        },
-        null,
-        2
-      )
-    );
+    json(res, 200, {
+      success: true,
+      data: {
+        price_feed: "SOL/USD: $185.42",
+        block_height: 345_291_847,
+        tps: 52_000,
+        message: "Premium data unlocked via PolicyVault x402 payment.",
+        receipt,
+        vault: ctx.vaultPda,
+        payee: ctx.payee,
+        amount: ctx.amount,
+      },
+    });
+    console.log(`[200] Data served. Receipt: ${receipt.slice(0, 20)}...`);
     return;
   }
 
+  // POST /confirm-payment
   if (req.method === "POST" && url.pathname === "/confirm-payment") {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", async () => {
       try {
-        const { txSignature } = JSON.parse(body);
-        if (!txSignature) throw new Error("Missing txSignature");
+        const { txSignature, vaultPda, owner, agent, payee, expectedLamports } = JSON.parse(body);
+        if (!txSignature || !vaultPda || !owner || !payee || !expectedLamports) {
+          json(res, 400, { error: "Missing required fields: txSignature, vaultPda, owner, payee, expectedLamports" });
+          return;
+        }
 
-        console.log(
-          `[VERIFY] Checking tx on Solana: ${txSignature.slice(0, 30)}...`
-        );
+        console.log(`[VERIFY] Checking tx on Solana: ${txSignature.slice(0, 30)}...`);
 
         const txInfo = await connection.getTransaction(txSignature, {
           commitment: "confirmed",
@@ -115,81 +105,98 @@ const server = http.createServer((req, res) => {
 
         if (!txInfo) {
           console.log("[REJECT] Transaction not found on-chain");
-          res.writeHead(402, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Transaction not found on-chain" }));
+          json(res, 402, { error: "Transaction not found on-chain" });
           return;
         }
 
         if (txInfo.meta?.err) {
           console.log("[REJECT] Transaction failed on-chain");
-          res.writeHead(402, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              error: "Transaction failed on-chain",
-              detail: txInfo.meta.err,
-            })
-          );
+          json(res, 402, { error: "Transaction failed on-chain", detail: txInfo.meta.err });
           return;
         }
 
-        const keys = txInfo.transaction.message.getAccountKeys().staticAccountKeys;
-        const calledVault = keys.some((k) => k.toBase58() === PROGRAM_ID);
+        const staticKeys = txInfo.transaction.message.getAccountKeys().staticAccountKeys;
 
+        // Verify transaction called PolicyVault program
+        const calledVault = staticKeys.some((k) => k.equals(programPubkey));
         if (!calledVault) {
           console.log("[REJECT] Tx did not call PolicyVault program");
-          res.writeHead(402, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({ error: "Transaction did not call PolicyVault" })
-          );
+          json(res, 402, { error: "Transaction did not call PolicyVault" });
           return;
         }
 
-        paidReceipts.add(txSignature);
-        console.log(
-          "[VERIFIED ✅] On-chain confirmed. PolicyVault called. Receipt stored."
-        );
+        // Verify expected accounts are in the transaction
+        const vaultKey = new PublicKey(vaultPda);
+        const payeeKey = new PublicKey(payee);
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({
-            confirmed: true,
-            receipt: txSignature,
-            message: "Payment verified on Solana. You may now access /data",
-          })
-        );
+        const vaultIdx = staticKeys.findIndex((k) => k.equals(vaultKey));
+        const payeeIdx = staticKeys.findIndex((k) => k.equals(payeeKey));
+
+        if (vaultIdx === -1) {
+          console.log("[REJECT] Vault PDA not found in transaction accounts");
+          json(res, 402, { error: "Vault PDA not found in transaction" });
+          return;
+        }
+        if (payeeIdx === -1) {
+          console.log("[REJECT] Payee not found in transaction accounts");
+          json(res, 402, { error: "Payee not found in transaction" });
+          return;
+        }
+
+        // Verify lamport flow: vault lost >= expectedLamports
+        const vaultPre = txInfo.meta.preBalances[vaultIdx];
+        const vaultPost = txInfo.meta.postBalances[vaultIdx];
+        const vaultDelta = vaultPre - vaultPost;
+
+        if (vaultDelta < expectedLamports) {
+          console.log(`[REJECT] Vault lamport mismatch: expected >=${expectedLamports} got ${vaultDelta}`);
+          json(res, 402, { error: "Vault lamport amount does not match expected payment" });
+          return;
+        }
+
+        // Verify payee gained at least expectedLamports
+        const payeePre = txInfo.meta.preBalances[payeeIdx];
+        const payeePost = txInfo.meta.postBalances[payeeIdx];
+        const payeeDelta = payeePost - payeePre;
+
+        if (payeeDelta < expectedLamports) {
+          console.log(`[REJECT] Payee lamport mismatch: expected >=${expectedLamports} got ${payeeDelta}`);
+          json(res, 402, { error: "Payee lamport amount does not match expected payment" });
+          return;
+        }
+
+        // All checks passed — store receipt with context
+        receipts.set(txSignature, { vaultPda, owner, agent, payee, amount: expectedLamports });
+        console.log(`[VERIFIED] On-chain confirmed. PolicyVault called. Receipt stored.`);
+        console.log(`  vault=${vaultPda.slice(0, 16)}... payee=${payee.slice(0, 16)}... amount=${expectedLamports}`);
+
+        json(res, 200, { confirmed: true, receipt: txSignature, message: "Payment verified on Solana" });
       } catch (e: any) {
         console.log(`[ERROR] ${e.message}`);
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: e.message }));
+        json(res, 400, { error: e.message });
       }
     });
     return;
   }
 
+  // GET /status
   if (req.method === "GET" && url.pathname === "/status") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify({
-        server: "PolicyVault x402 API",
-        status: "running",
-        rpc: RPC_URL,
-        program: PROGRAM_ID,
-        price_lamports: PRICE_LAM,
-        receipts_count: paidReceipts.size,
-      })
-    );
+    json(res, 200, {
+      server: "PolicyVault x402 API",
+      status: "running",
+      rpc: RPC_URL,
+      program: PROGRAM_ID,
+      price_lamports: PRICE_LAM,
+      receipts_count: receipts.size,
+    });
     return;
   }
 
-  res.writeHead(404);
-  res.end("Not found");
+  json(res, 404, { error: "Not found" });
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🚀 PolicyVault x402 API live on port ${PORT}`);
-  console.log(`   GET  /data`);
-  console.log(`   POST /confirm-payment`);
-  console.log(`   GET  /status`);
-  console.log(`\n   Program : ${PROGRAM_ID}`);
+  console.log(`\nPolicyVault x402 API live on port ${PORT}`);
+  console.log(`   Program : ${PROGRAM_ID}`);
   console.log(`   RPC     : ${RPC_URL}\n`);
 });
