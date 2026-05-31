@@ -8,5 +8,5 @@
     "resolveJsonModule": true,
     "strict": false,
   },
-  "include": ["./**/*.ts"]
+  "include": ["./server.ts"]
 }
