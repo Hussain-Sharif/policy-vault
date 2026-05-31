@@ -12,7 +12,7 @@ policy_vault = "CF7R8RBEwGJtmDtxLkxsLJWWg8TdcQTiEVM34JtDxVLY"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
